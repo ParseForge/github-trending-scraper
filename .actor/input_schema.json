@@ -1,0 +1,47 @@
+{
+  "title": "GitHub Trending Repos Scraper",
+  "type": "object",
+  "schemaVersion": 1,
+  "properties": {
+    "maxItems": {
+      "title": "Max Items",
+      "type": "integer",
+      "description": "Free users: Limited to 10 items (preview). Paid users: Optional, max 1,000,000.",
+      "editor": "number",
+      "prefill": 25,
+      "minimum": 1,
+      "maximum": 1000000
+    },
+    "language": {
+      "title": "Programming language",
+      "type": "string",
+      "description": "Filter by programming language. Examples: `python`, `typescript`, `rust`, `go`. Leave empty for all languages.",
+      "editor": "textfield",
+      "sectionCaption": "Search",
+      "sectionDescription": "GitHub trending lists 25 repos per page. Use these filters to narrow the trending feed."
+    },
+    "spokenLanguage": {
+      "title": "Spoken language",
+      "type": "string",
+      "description": "Filter by README spoken language code (e.g. `en`, `zh`, `ja`, `ko`). Leave empty for any.",
+      "editor": "textfield"
+    },
+    "since": {
+      "title": "Time range",
+      "type": "string",
+      "description": "Trending window: `daily`, `weekly`, or `monthly`.",
+      "editor": "select",
+      "enum": ["daily", "weekly", "monthly"],
+      "default": "daily",
+      "prefill": "daily"
+    },
+    "enrichWithApi": {
+      "title": "Enrich with GitHub API",
+      "type": "boolean",
+      "description": "When enabled, each trending repo is queried via api.github.com to add full stats: license, default branch, open issues, watchers, topics, push date, etc.",
+      "editor": "checkbox",
+      "default": true
+    }
+  },
+  "required": []
+}

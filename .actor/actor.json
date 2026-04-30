@@ -1,0 +1,10 @@
+{
+  "actorSpecification": 1,
+  "name": "github-trending-scraper",
+  "title": "GitHub Trending Repos Scraper",
+  "description": "Pull GitHub's trending repositories with stars, language, description, contributors, and momentum data. Filter by language, time range (today, week, month), or specific topic. Export clean JSON, CSV, or Excel for SEO research, dev intelligence, and discovering rising projects.",
+  "version": "1.0",
+  "buildTag": "latest",
+  "dockerfile": "./Dockerfile",
+  "input": "./input_schema.json"
+}
