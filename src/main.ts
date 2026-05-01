@@ -52,43 +52,41 @@ console.log(c.green(`   🟩 maxItems : ${effectiveMaxItems}`));
 console.log('');
 console.log(c.magenta(`📬 ${pick(STARTUP)}\n`));
 
-function buildUrl(): string {
-    const base = `https://github.com/trending${language ? '/' + encodeURIComponent(language) : ''}`;
+function buildUrl(lang: string, periodVal: string): string {
+    const base = `https://github.com/trending${lang ? '/' + encodeURIComponent(lang) : ''}`;
     const params = new URLSearchParams();
-    params.set('since', since);
+    params.set('since', periodVal);
     if (spokenLanguage) params.set('spoken_language_code', spokenLanguage);
     return `${base}?${params.toString()}`;
 }
 
-const url = buildUrl();
-log.info(`📡 ${url}`);
+const TOP_LANGUAGES = ['', 'typescript', 'python', 'javascript', 'rust', 'go', 'java', 'c++', 'c', 'ruby', 'swift', 'kotlin', 'php', 'scala', 'r'];
+const PERIODS = since === 'daily' ? ['daily', 'weekly', 'monthly'] : [since];
 
-let html: string;
-try {
-    const r = await fetch(url, {
-        headers: {
-            'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36',
-            'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
-            'Accept-Language': 'en-US,en;q=0.9',
-        },
-    });
-    if (!r.ok) {
-        log.error(`❌ HTTP ${r.status}`);
-        await Actor.pushData([{ error: `HTTP ${r.status}` }]);
-        await Actor.exit();
+const repos: any[] = [];
+const seen = new Set<string>();
+const HEADERS = {
+    'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/124.0 Safari/537.36',
+    'Accept': 'text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8',
+    'Accept-Language': 'en-US,en;q=0.9',
+};
+
+async function harvestPage(lang: string, periodVal: string): Promise<void> {
+    if (repos.length >= effectiveMaxItems) return;
+    const url = buildUrl(lang, periodVal);
+    try {
+        const r = await fetch(url, { headers: HEADERS });
+        if (!r.ok) return;
+        const html = await r.text();
+        parseHtmlInto(html, periodVal);
+    } catch (err: any) {
+        log.warning(`   ${url}: ${err.message}`);
     }
-    html = await r.text();
-} catch (err: any) {
-    log.error(`❌ ${err.message}`);
-    await Actor.pushData([{ error: err.message }]);
-    await Actor.exit();
-    process.exit(0);
 }
 
-const $ = cheerio.load(html);
-const repos: any[] = [];
-
-$('article.Box-row').each((rank, el) => {
+function parseHtmlInto(html: string, periodVal: string): void {
+    const $ = cheerio.load(html);
+    $('article.Box-row').each((rank, el) => {
     const $el = $(el);
     const fullName = $el.find('h2 > a').first().attr('href') ?? '';
     if (!fullName) return;
@@ -106,6 +104,8 @@ $('article.Box-row').each((rank, el) => {
     const periodStars = periodStarsText ? parseInt(periodStarsText, 10) : null;
     const builtBy = $el.find('span:contains("Built by")').next().find('img').map((_, img) => $(img).attr('alt')?.replace('@', '')).get();
 
+    if (seen.has(cleanFullName)) return;
+    seen.add(cleanFullName);
     repos.push({
         rank: rank + 1,
         fullName: cleanFullName,
@@ -118,10 +118,24 @@ $('article.Box-row').each((rank, el) => {
         totalStars: totalStars && !isNaN(totalStars) ? totalStars : null,
         totalForks: totalForks && !isNaN(totalForks) ? totalForks : null,
         starsThisPeriod: periodStars && !isNaN(periodStars) ? periodStars : null,
-        period: since,
+        period: periodVal,
         contributorsShown: builtBy.filter(Boolean),
     });
 });
+}
+
+// Round-robin: try the user's filter first, then fan out across periods + top languages until enough
+const candidatePages: Array<[string, string]> = [];
+for (const p of PERIODS) candidatePages.push([language, p]);
+if (!language) {
+    for (const lang of TOP_LANGUAGES.slice(1)) for (const p of PERIODS) candidatePages.push([lang, p]);
+}
+
+for (const [lang, p] of candidatePages) {
+    if (repos.length >= effectiveMaxItems) break;
+    log.info(`📡 ${lang || 'all'} / ${p}`);
+    await harvestPage(lang, p);
+}
 
 log.info(`📊 ${repos.length} trending repos parsed`);
 
